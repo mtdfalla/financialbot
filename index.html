@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Document Analyzer</title>
+    <style>
+        :root {
+            /* Light Theme (Off-white, clean) */
+            --bg: #f5f6f8;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #4b5563;
+            --accent: #0f766e;
+            --accent-hover: #0d5f58;
+            --border: #d6d9de;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --header-bg: #e5e7eb;
+            --input-bg: #ffffff;
+            
+            --font-serif: Georgia, 'Times New Roman', serif;
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --radius: 4px;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme (Terminal-like) */
+            --bg: #121418;
+            --card-bg: #1b1f24;
+            --text-main: #d9dde3;
+            --text-muted: #8b949e;
+            --accent: #3fb68b;
+            --accent-hover: #2ea074;
+            --border: #2d333b;
+            --header-bg: #22272e;
+            --input-bg: #0d1117;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-serif);
+            background-color: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Utility */
+        .sans { font-family: var(--font-sans); }
+        .text-sm { font-size: 0.85rem; }
+        .text-xs { font-size: 0.75rem; }
+        .muted { color: var(--text-muted); }
+        .flex { display: flex; }
+        .flex-col { display: flex; flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .hidden { display: none !important; }
+
+        /* Top Navigation Bar */
+        .topbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: var(--spacing-sm) var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            font-weight: bold;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .brand-icon {
+            color: var(--accent);
+            font-weight: 900;
+        }
+
+        .api-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-sans);
+        }
+
+        .api-input {
+            background-color: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 4px 8px;
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            width: 200px;
+        }
+
+        .btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 4px 10px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background-color: var(--header-bg);
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--error);
+        }
+
+        .dot.connected { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
+        .dot.testing { background-color: var(--warning); animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* Main Layout Grid */
+        .main-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 380px;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background-color: var(--bg);
+            overflow: hidden;
+        }
+        
+        .panel:last-child {
+            border-right: none;
+        }
+
+        .panel-header {
+            background-color: var(--header-bg);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Left Panel: Document Vault */
+        .vault-controls {
+            padding: var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            border-bottom: 1px solid var(--border);
+            background-color: var(--card-bg);
+        }
+
+        .upload-zone {
+            border: 1px dashed var(--accent);
+            border-radius: var(--radius);
+            padding: var(--spacing-md);
+            text-align: center;
+            cursor: pointer;
+            background-color: var(--bg);
+            transition: background-color 0.2s;
+        }
+        
+        .upload-zone:hover {
+            background-color: var(--header-bg);
+        }
+
+        .doc-search {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+        }
+
+        .doc-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: var(--spacing-sm);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .doc-item {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: var(--spacing-sm) var(--spacing-md);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .doc-item:hover {
+            border-color: var(--accent);
+        }
+
+        .doc-item.active {
+            border-color: var(--accent);
+            border-left: 4px solid var(--accent);
+            background-color: var(--header-bg);
+        }
+
+        .doc-title {
+            font-weight: bold;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .doc-meta {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-sans);
+        }
+        
+        .delete-doc {
+            color: var(--error);
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* Center Panel: Document Viewer */
+        .viewer-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--card-bg);
+            position: relative;
+        }
+
+        .viewer-tabs {
+            display: flex;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .viewer-tab {
+            padding: 8px 16px;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-right: 1px solid var(--border);
+            background-color: transparent;
+            color: var(--text-muted);
+        }
+
+        .viewer-tab.active {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-bg);
+            margin-bottom: -1px;
+        }
+
+        .viewer-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            height: 100%;
+        }
+
+        .pdf-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #525659; /* Standard PDF viewer bg */
+        }
+
+        .text-editor-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-md);
+            background-color: var(--bg);
+        }
+
+        .text-editor {
+            flex-grow: 1;
+            width: 100%;
+            resize: none;
+            padding: var(--spacing-md);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .text-editor-help {
+            margin-bottom: var(--spacing-sm);
+            font-family: var(--font-sans);
+            color: var(--accent);
+            background: rgba(15, 118, 110, 0.1);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+        }
+
+        .empty-state {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+        }
+        
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Right Panel: AI Assistant & Dashboard */
+        .dashboard-cards {
+            padding: var(--spacing-md);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-sm);
+            border-bottom: 1px solid var(--border);
+            background-color: var(--bg);
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: var(--spacing-sm);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--card-bg);
+            overflow: hidden;
+        }
+
+        .chat-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 90%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .message-bubble {
+            padding: 10px 14px;
+            border-radius: 6px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-bubble {
+            background-color: var(--header-bg);
+            border: 1px solid var(--border);
+            border-bottom-right-radius: 0;
+        }
+
+        .message.assistant .message-bubble {
+            background-color: transparent;
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 0;
+        }
+
+        .message-sources {
+            margin-top: 8px;
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .source-item {
+            margin-bottom: 4px;
+            border-left: 2px solid var(--accent);
+            padding-left: 6px;
+        }
+
+        .source-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .source-doc { font-weight: bold; }
+        .source-excerpt { font-style: italic; color: var(--text-muted); }
+
+        .chat-input-area {
+            padding: var(--spacing-md);
+            border-top: 1px solid var(--border);
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-textarea {
+            width: 100%;
+            resize: none;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            height: 80px;
+        }
+
+        .chat-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .chat-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Loading animation */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 4px 8px;
+            align-items: center;
+        }
+        .typing-dot {
+            width: 6px; height: 6px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        /* Modal */
+        .msg-box {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--card-bg); border: 1px solid var(--border);
+            padding: 10px 20px; border-radius: 4px; z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: var(--font-sans);
+            display: none; transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="topbar">
+        <div class="brand">
+            <span class="brand-icon">§</span>
+            <span>Financial Document Analyzer</span>
+        </div>
+        <div class="api-controls">
+            <div class="status-indicator">
+                <div id="conn-dot" class="dot"></div>
+                <span id="conn-text" class="text-xs muted">Not Connected</span>
+            </div>
+            <input type="password" id="api-key-input" class="api-input" placeholder="Enter Gemini API Key">
+            <button id="save-key-btn" class="btn text-xs">Save Key</button>
+            <button id="test-key-btn" class="btn text-xs">Test Connection</button>
+            <button id="theme-toggle" class="btn text-xs">🌓 Dark Mode</button>
+        </div>
+    </nav>
+
+    <!-- Main Workspace -->
+    <div class="main-container">
+        
+        <!-- Left Column: Document Vault -->
+        <aside class="panel">
+            <div class="panel-header">
+                <span>Financial Document Vault</span>
+                <span id="doc-count-badge" class="muted text-xs">0 Docs</span>
+            </div>
+            <div class="vault-controls">
+                <input type="file" id="file-upload" multiple accept="application/pdf" class="hidden">
+                <div class="upload-zone" id="upload-zone">
+                    <div class="text-sm">Drag & drop financial PDFs here</div>
+                    <div class="text-xs muted mt-1">or click to browse</div>
+                </div>
+                <input type="text" id="doc-search" class="doc-search" placeholder="Search documents...">
+            </div>
+            <div class="doc-list" id="doc-list">
+                <!-- Documents injected here -->
+            </div>
+        </aside>
+
+        <!-- Center Column: Document Viewer -->
+        <main class="panel">
+            <div class="panel-header">
+                <span id="viewer-title">Selected Document</span>
+            </div>
+            <div class="viewer-container">
+                <div id="viewer-empty-state" class="empty-state">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <h3>No Document Selected</h3>
+                    <p class="text-sm mt-1">Upload and select a financial document PDF to begin analysis.</p>
+                </div>
+
+                <div id="viewer-active-state" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+                    <div class="viewer-tabs">
+                        <button class="viewer-tab active" data-tab="pdf">PDF Viewer</button>
+                        <button class="viewer-tab" data-tab="text">Document Text (Data)</button>
+                    </div>
+                    
+                    <div class="viewer-content">
+                        <!-- PDF Frame -->
+                        <div id="tab-pdf" style="height: 100%;">
+                            <iframe id="pdf-frame" class="pdf-frame"></iframe>
+                        </div>
+                        
+                        <!-- Manual Text Extraction Fallback -->
+                        <div id="tab-text" class="text-editor-container hidden">
+                            <div class="text-editor-help text-sm">
+                                <strong>Required for AI Analysis:</strong> Since browsers cannot natively read PDF text securely, please copy the text from the PDF viewer tab and paste it here. This text will be analyzed by the AI.
+                            </div>
+                            <textarea id="doc-text-editor" class="text-editor" placeholder="Paste the financial document text here..."></textarea>
+                            <div style="text-align: right; margin-top: 8px;">
+                                <button id="save-text-btn" class="btn btn-primary">Save Document Text</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Column: AI Assistant & Dashboard -->
+        <aside class="panel">
+            <div class="panel-header">
+                <span>Financial Overview</span>
+            </div>
+            <div class="dashboard-cards">
+                <div class="stat-card">
+                    <span class="stat-label">Total Documents</span>
+                    <span class="stat-value" id="stat-docs">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Detected Currencies</span>
+                    <span class="stat-value" id="stat-currency">Unknown</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Date Range</span>
+                    <span class="stat-value text-sm" id="stat-dates" style="white-space: normal;">Unknown</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Largest Amount</span>
+                    <span class="stat-value" id="stat-largest">Unknown</span>
+                </div>
+            </div>
+            
+            <div class="panel-header" style="border-top: 1px solid var(--border);">
+                <span>Financial AI Assistant</span>
+                <button id="clear-chat-btn" class="btn text-xs">Clear</button>
+            </div>
+            
+            <div class="chat-container">
+                <div class="chat-history" id="chat-history">
+                    <div class="message assistant">
+                        <div class="message-bubble">Hello. I am your local-first Financial Assistant. You can ask me general questions, or upload your financial PDFs and paste their text data to analyze them.</div>
+                    </div>
+                </div>
+                
+                <div class="chat-input-area">
+                    <textarea id="chat-input" class="chat-textarea" placeholder="Ask a question... (Cmd/Ctrl + Enter to send)"></textarea>
+                    <div class="chat-actions">
+                        <span class="text-xs muted sans">Answers use documents if relevant, or general knowledge.</span>
+                        <button id="send-msg-btn" class="btn btn-primary">Send Message</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div id="msg-box" class="msg-box"></div>
+
+    <script>
+        /**
+         * State Management
+         */
+        const state = {
+            apiKey: localStorage.getItem('gemini_api_key') || '',
+            theme: localStorage.getItem('theme') || 'light',
+            documents: [], // { id, name, file, objectUrl, size, text, chunks: [] }
+            activeDocId: null,
+            chatHistory: [],
+            isGenerating: false
+        };
+
+        /**
+         * DOM Elements
+         */
+        const els = {
+            apiKeyInput: document.getElementById('api-key-input'),
+            saveKeyBtn: document.getElementById('save-key-btn'),
+            testKeyBtn: document.getElementById('test-key-btn'),
+            themeToggle: document.getElementById('theme-toggle'),
+            connDot: document.getElementById('conn-dot'),
+            connText: document.getElementById('conn-text'),
+            
+            fileUpload: document.getElementById('file-upload'),
+            uploadZone: document.getElementById('upload-zone'),
+            docList: document.getElementById('doc-list'),
+            docSearch: document.getElementById('doc-search'),
+            docCountBadge: document.getElementById('doc-count-badge'),
+            
+            viewerEmptyState: document.getElementById('viewer-empty-state'),
+            viewerActiveState: document.getElementById('viewer-active-state'),
+            viewerTitle: document.getElementById('viewer-title'),
+            pdfFrame: document.getElementById('pdf-frame'),
+            viewerTabs: document.querySelectorAll('.viewer-tab'),
+            tabPdf: document.getElementById('tab-pdf'),
+            tabText: document.getElementById('tab-text'),
+            docTextEditor: document.getElementById('doc-text-editor'),
+            saveTextBtn: document.getElementById('save-text-btn'),
+            
+            statDocs: document.getElementById('stat-docs'),
+            statCurrency: document.getElementById('stat-currency'),
+            statDates: document.getElementById('stat-dates'),
+            statLargest: document.getElementById('stat-largest'),
+            
+            chatHistory: document.getElementById('chat-history'),
+            chatInput: document.getElementById('chat-input'),
+            sendMsgBtn: document.getElementById('send-msg-btn'),
+            clearChatBtn: document.getElementById('clear-chat-btn'),
+            
+            msgBox: document.getElementById('msg-box')
+        };
+
+        /**
+         * Initialization
+         */
+        function init() {
+            // Apply Theme
+            document.documentElement.setAttribute('data-theme', state.theme);
+            els.themeToggle.innerText = state.theme === 'dark' ? '☀️ Light Mode' : '🌓 Dark Mode';
+            
+            // API Key
+            if (state.apiKey) {
+                els.apiKeyInput.value = state.apiKey;
+                testConnection();
+            }
+
+            // Event Listeners
+            els.saveKeyBtn.addEventListener('click', saveApiKey);
+            els.testKeyBtn.addEventListener('click', testConnection);
+            els.themeToggle.addEventListener('click', toggleTheme);
+            
+            els.uploadZone.addEventListener('click', () => els.fileUpload.click());
+            els.uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); els.uploadZone.style.borderColor = 'var(--accent-hover)'; });
+            els.uploadZone.addEventListener('dragleave', () => els.uploadZone.style.borderColor = 'var(--accent)');
+            els.uploadZone.addEventListener('drop', handleFileDrop);
+            els.fileUpload.addEventListener('change', handleFileSelect);
+            els.docSearch.addEventListener('input', renderDocList);
+            
+            els.viewerTabs.forEach(tab => tab.addEventListener('click', (e) => switchViewerTab(e.target.dataset.tab)));
+            els.saveTextBtn.addEventListener('click', saveDocText);
+            
+            els.sendMsgBtn.addEventListener('click', handleSendMessage);
+            els.chatInput.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            });
+            els.clearChatBtn.addEventListener('click', clearChat);
+        }
+
+        /**
+         * Helpers & UI Utilities
+         */
+        function showMsg(text, type = 'info') {
+            els.msgBox.textContent = text;
+            els.msgBox.style.display = 'block';
+            els.msgBox.style.color = type === 'error' ? 'var(--error)' : 'var(--text-main)';
+            setTimeout(() => { els.msgBox.style.display = 'none'; }, 3000);
+        }
+
+        function toggleTheme() {
+            state.theme = state.theme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', state.theme);
+            localStorage.setItem('theme', state.theme);
+            els.themeToggle.innerText = state.theme === 'dark' ? '☀️ Light Mode' : '🌓 Dark Mode';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+        /**
+         * API Key & Connection
+         */
+        function saveApiKey() {
+            const key = els.apiKeyInput.value.trim();
+            if (key) {
+                state.apiKey = key;
+                localStorage.setItem('gemini_api_key', key);
+                showMsg('API Key Saved Successfully');
+                testConnection();
+            } else {
+                showMsg('Please enter a valid API key', 'error');
+            }
+        }
+
+        async function testConnection() {
+            if (!state.apiKey) return;
+            
+            els.connDot.className = 'dot testing';
+            els.connText.innerText = 'Checking...';
+            
+            try {
+                // Using standard flash endpoint
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: "Respond with exactly 'OK'" }] }]
+                    })
+                });
+
+                if (response.ok) {
+                    els.connDot.className = 'dot connected';
+                    els.connText.innerText = 'Gemini Connected';
+                } else {
+                    throw new Error('Connection failed');
+                }
+            } catch (err) {
+                els.connDot.className = 'dot';
+                els.connText.innerText = 'Not Connected';
+                showMsg('Failed to connect to Gemini API. Check your key.', 'error');
+            }
+        }
+
+        /**
+         * Document Management
+         */
+        function handleFileDrop(e) {
+            e.preventDefault();
+            els.uploadZone.style.borderColor = 'var(--accent)';
+            if (e.dataTransfer.files.length) {
+                processFiles(e.dataTransfer.files);
+            }
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files.length) {
+                processFiles(e.target.files);
+                els.fileUpload.value = ''; // Reset
+            }
+        }
+
+        function processFiles(files) {
+            let added = 0;
+            Array.from(files).forEach(file => {
+                if (file.type === 'application/pdf') {
+                    const doc = {
+                        id: generateId(),
+                        name: file.name,
+                        size: file.size,
+                        objectUrl: URL.createObjectURL(file),
+                        text: '', // To be pasted by user
+                        chunks: [] // Parsed later
+                    };
+                    state.documents.push(doc);
+                    added++;
+                }
+            });
+            
+            if (added > 0) {
+                renderDocList();
+                updateDashboard();
+                showMsg(`${added} document(s) added.`);
+                // Select latest if none active
+                if (!state.activeDocId) {
+                    selectDocument(state.documents[state.documents.length - 1].id);
+                }
+            }
+        }
+
+        function renderDocList() {
+            const query = els.docSearch.value.toLowerCase();
+            els.docList.innerHTML = '';
+            els.docCountBadge.innerText = `${state.documents.length} Docs`;
+            
+            const filtered = state.documents.filter(d => d.name.toLowerCase().includes(query));
+            
+            if (filtered.length === 0 && state.documents.length > 0) {
+                els.docList.innerHTML = '<div class="text-sm muted" style="padding: 10px;">No matches found.</div>';
+                return;
+            }
+
+            filtered.forEach(doc => {
+                const el = document.createElement('div');
+                el.className = `doc-item ${state.activeDocId === doc.id ? 'active' : ''}`;
+                el.onclick = () => selectDocument(doc.id);
+                
+                // Indicators for textual content presence
+                const textStatus = doc.text.trim().length > 0 
+                    ? `<span style="color:var(--success); font-size:10px;">⬤ Indexed</span>`
+                    : `<span style="color:var(--warning); font-size:10px;">◯ Needs Text</span>`;
+
+                el.innerHTML = `
+                    <div class="doc-title" title="${doc.name}">${doc.name}</div>
+                    <div class="doc-meta">
+                        <span class="text-xs muted">${formatBytes(doc.size)} | ${textStatus}</span>
+                        <span class="delete-doc" onclick="deleteDocument(event, '${doc.id}')">Delete</span>
+                    </div>
+                `;
+                els.docList.appendChild(el);
+            });
+        }
+
+        function selectDocument(id) {
+            state.activeDocId = id;
+            renderDocList();
+            
+            const doc = state.documents.find(d => d.id === id);
+            if (doc) {
+                els.viewerEmptyState.classList.add('hidden');
+                els.viewerActiveState.classList.remove('hidden');
+                els.viewerTitle.innerText = doc.name;
+                els.pdfFrame.src = doc.objectUrl;
+                els.docTextEditor.value = doc.text;
+                
+                // Switch to text tab if it's empty to encourage pasting
+                if(doc.text.trim().length === 0) {
+                     switchViewerTab('text');
+                } else {
+                     switchViewerTab('pdf');
+                }
+            } else {
+                els.viewerEmptyState.classList.remove('hidden');
+                els.viewerActiveState.classList.add('hidden');
+                els.viewerTitle.innerText = 'Selected Document';
+            }
+        }
+
+        function deleteDocument(e, id) {
+            e.stopPropagation();
+            const docIdx = state.documents.findIndex(d => d.id === id);
+            if (docIdx > -1) {
+                // Clean up object URL
+                URL.revokeObjectURL(state.documents[docIdx].objectUrl);
+                state.documents.splice(docIdx, 1);
+                
+                if (state.activeDocId === id) {
+                    state.activeDocId = null;
+                    els.viewerEmptyState.classList.remove('hidden');
+                    els.viewerActiveState.classList.add('hidden');
+                    els.viewerTitle.innerText = 'Selected Document';
+                }
+                renderDocList();
+                updateDashboard();
+            }
+        }
+
+        function switchViewerTab(tabId) {
+            els.viewerTabs.forEach(t => t.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            
+            if (tabId === 'pdf') {
+                els.tabPdf.classList.remove('hidden');
+                els.tabText.classList.add('hidden');
+            } else {
+                els.tabPdf.classList.add('hidden');
+                els.tabText.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Document Text Parsing & Chunking (Local Retrieval Setup)
+         */
+        function saveDocText() {
+            if (!state.activeDocId) return;
+            const doc = state.documents.find(d => d.id === state.activeDocId);
+            if (doc) {
+                doc.text = els.docTextEditor.value;
+                // Basic chunking: split by paragraphs, group to ~300 words
+                doc.chunks = createChunks(doc.text, 300);
+                showMsg('Document text saved and indexed for AI.');
+                renderDocList(); // Update status indicator
+                updateDashboard();
+            }
+        }
+
+        function createChunks(text, targetWordCount) {
+            const paragraphs = text.split(/\n\s*\n/);
+            const chunks = [];
+            let currentChunk = [];
+            let currentWords = 0;
+
+            for (const p of paragraphs) {
+                const words = p.split(/\s+/).length;
+                if (currentWords + words > targetWordCount && currentChunk.length > 0) {
+                    chunks.push(currentChunk.join('\n\n'));
+                    currentChunk = [];
+                    currentWords = 0;
+                }
+                currentChunk.push(p);
+                currentWords += words;
+            }
+            if (currentChunk.length > 0) chunks.push(currentChunk.join('\n\n'));
+            return chunks.map((text, idx) => ({ id: idx, text: text.trim() })).filter(c => c.text.length > 10);
+        }
+
+        /**
+         * Dashboard Extraction (Regex based heuristics)
+         */
+        function updateDashboard() {
+            const allText = state.documents.map(d => d.text).join('\n');
+            els.statDocs.innerText = state.documents.length;
+            
+            if (!allText.trim()) {
+                els.statCurrency.innerText = 'Unknown';
+                els.statDates.innerText = 'Unknown';
+                els.statLargest.innerText = 'Unknown';
+                return;
+            }
+
+            // Detect currencies
+            const currencies = new Set();
+            if (allText.includes('$')) currencies.add('USD ($)');
+            if (allText.includes('€')) currencies.add('EUR (€)');
+            if (allText.includes('£')) currencies.add('GBP (£)');
+            els.statCurrency.innerText = currencies.size > 0 ? Array.from(currencies).join(', ') : 'None';
+
+            // Extract basic dates (YYYY-MM-DD or MM/DD/YYYY)
+            const dateRegex = /\b(20\d{2}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/(20)?\d{2})\b/g;
+            const dates = allText.match(dateRegex) || [];
+            if (dates.length > 0) {
+                const sorted = dates.sort();
+                els.statDates.innerText = `${sorted[0]} to ${sorted[sorted.length-1]}`;
+            } else {
+                els.statDates.innerText = 'Not Found';
+            }
+
+            // Extract largest transaction (look for $xx,xxx.xx format)
+            const moneyRegex = /\$[\d,]+\.\d{2}/g;
+            const amounts = allText.match(moneyRegex) || [];
+            if (amounts.length > 0) {
+                let max = 0;
+                let maxStr = '';
+                amounts.forEach(a => {
+                    const val = parseFloat(a.replace(/[$,]/g, ''));
+                    if (val > max) { max = val; maxStr = a; }
+                });
+                els.statLargest.innerText = maxStr;
+            } else {
+                els.statLargest.innerText = 'Not Found';
+            }
+        }
+
+        /**
+         * Local Keyword Retrieval & AI Integration
+         */
+        function getRelevantChunks(query, topK = 8) {
+            // Very simple keyword overlap scoring
+            const stopWords = new Set(['the','is','in','at','of','on','and','a','to','for','with','what','how','much','summarize','list','find','compare','explain']);
+            const queryTokens = query.toLowerCase().replace(/[^\w\s]/gi, '').split(/\s+/).filter(t => !stopWords.has(t) && t.length > 2);
+            
+            let allChunks = [];
+            state.documents.forEach(doc => {
+                doc.chunks.forEach(chunk => {
+                    let score = 0;
+                    const chunkLower = chunk.text.toLowerCase();
+                    queryTokens.forEach(token => {
+                        if (chunkLower.includes(token)) {
+                            // Rough frequency count
+                            score += (chunkLower.match(new RegExp(token, 'g')) || []).length;
+                        }
+                    });
+                    
+                    // Boost if doc name matches keywords
+                    queryTokens.forEach(token => {
+                        if(doc.name.toLowerCase().includes(token)) score += 5;
+                    });
+
+                    allChunks.push({
+                        docName: doc.name,
+                        chunkId: chunk.id,
+                        text: chunk.text,
+                        score: score
+                    });
+                });
+            });
+
+            // Sort by score and take Top K
+            allChunks.sort((a, b) => b.score - a.score);
+            return allChunks.slice(0, topK).filter(c => c.score > 0); 
+        }
+
+        async function handleSendMessage() {
+            if (state.isGenerating) return;
+            const text = els.chatInput.value.trim();
+            if (!text) return;
+            if (!state.apiKey) {
+                showMsg('Please enter and save your Gemini API Key first.', 'error');
+                return;
+            }
+
+            appendMessage('user', text);
+            els.chatInput.value = '';
+            state.isGenerating = true;
+
+            // Show loading
+            const loadingId = 'loading-' + Date.now();
+            const loadingHTML = `
+                <div id="${loadingId}" class="message assistant">
+                    <div class="message-bubble typing-indicator">
+                        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+                    </div>
+                </div>`;
+            els.chatHistory.insertAdjacentHTML('beforeend', loadingHTML);
+            els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
+
+            try {
+                // 1. Retrieve Context
+                const relevantChunks = getRelevantChunks(text);
+                
+                let contextString = "";
+                let systemInstruction = "";
+
+                if (relevantChunks.length > 0) {
+                    contextString = relevantChunks.map(c => `[Document: ${c.docName}, Chunk: ${c.chunkId}]\n${c.text}\n`).join('\n---\n');
+                    systemInstruction = `You are an expert, professional financial AI assistant. 
+Your primary goal is to answer the user's questions based on the provided document excerpts. 
+If the user's question is related to the provided document excerpts, answer it using ONLY those excerpts. DO NOT generate financial advice.
+If the answer cannot be found in the provided excerpts, or if the user is asking a general question not related to the documents, you may use your general knowledge to assist them.
+
+When you provide an answer based on the document excerpts, you MUST append a "Sources" section at the end of your response. 
+Format sources exactly like this:
+Sources:
+[Document Name], chunk [Chunk ID]
+"[Short 5-10 word relevant excerpt...]"`;
+                } else {
+                    contextString = "No uploaded documents or relevant document chunks found.";
+                    systemInstruction = `You are an expert, professional financial AI assistant. 
+The user has not uploaded any relevant documents for this query, or no documents match their question. 
+Answer their question using your general knowledge. DO NOT generate financial advice.
+Do not include a "Sources" section since you are using general knowledge.`;
+                }
+
+                const promptText = `User Query: ${text}\n\nDocument Excerpts:\n${contextString}`;
+
+                // 3. API Call with backoff simulation
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.apiKey}`;
+                
+                const response = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: systemInstruction }] },
+                        contents: [{ parts: [{ text: promptText }] }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Remove loading
+                document.getElementById(loadingId).remove();
+
+                if (data.error) throw new Error(data.error.message);
+
+                const answerText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                
+                // Parse out the Sources part if exists to format it nicely
+                let mainContent = answerText;
+                let sourcesHtml = '';
+                const sourceSplit = answerText.split(/Sources:\s*/i);
+                if (sourceSplit.length > 1) {
+                    mainContent = sourceSplit[0].trim();
+                    const sourcesRaw = sourceSplit[1].trim().split('\n');
+                    
+                    let srcBuffer = '';
+                    for(let i=0; i<sourcesRaw.length; i+=2) {
+                        if(sourcesRaw[i] && sourcesRaw[i+1]) {
+                             srcBuffer += `<div class="source-item">
+                                <div class="source-doc">${sourcesRaw[i].replace(/[\[\]]/g, '')}</div>
+                                <div class="source-excerpt">${sourcesRaw[i+1]}</div>
+                             </div>`;
+                        }
+                    }
+                    if (srcBuffer) {
+                        sourcesHtml = `<div class="message-sources"><strong>Sources:</strong><br/>${srcBuffer}</div>`;
+                    }
+                }
+
+                appendMessage('assistant', mainContent, sourcesHtml);
+
+            } catch (err) {
+                document.getElementById(loadingId)?.remove();
+                appendMessage('assistant', `Error: ${err.message}. Ensure your API key is correct and you have an active internet connection.`);
+            } finally {
+                state.isGenerating = false;
+            }
+        }
+
+        async function fetchWithRetry(url, options, retries = 3) {
+            let delay = 1000;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return response;
+                    if (response.status === 429) {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                        continue;
+                    }
+                    return response; // Return to handle other errors below
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function appendMessage(role, text, sourcesHtml = '') {
+            const escapeHtml = (unsafe) => {
+                return unsafe
+                     .replace(/&/g, "&amp;")
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;")
+                     .replace(/"/g, "&quot;")
+                     .replace(/'/g, "&#039;");
+            };
+
+            const html = `
+                <div class="message ${role}">
+                    <div class="message-bubble">${escapeHtml(text)}</div>
+                    ${sourcesHtml}
+                    ${role === 'assistant' ? `<button onclick="navigator.clipboard.writeText(this.parentElement.querySelector('.message-bubble').innerText); showMsg('Copied!')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:10px;margin-top:4px;text-align:right;">Copy Answer</button>` : ''}
+                </div>
+            `;
+            els.chatHistory.insertAdjacentHTML('beforeend', html);
+            els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
+        }
+
+        function clearChat() {
+            els.chatHistory.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-bubble">Chat history cleared. You can ask general questions or process financial documents.</div>
+                </div>`;
+        }
+
+        // Boot
+        window.onload = init;
+
+    </script>
+</body>
+</html>
